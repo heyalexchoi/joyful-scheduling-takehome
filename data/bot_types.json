@@ -1,0 +1,36 @@
+[
+  {
+    "id": "bot_ehr",
+    "name": "EHR Connector",
+    "description": "Pulls patient and clinical data from Electronic Health Record systems",
+    "default_schedule": {
+      "interval_minutes": 60,
+      "retry_attempts": 3,
+      "timeout_seconds": 300
+    },
+    "supported_sources": ["epic", "cerner", "allscripts", "athenahealth"]
+  },
+  {
+    "id": "bot_clearinghouse",
+    "name": "Clearing House Connector",
+    "description": "Retrieves claims and remittance data from healthcare clearing houses",
+    "default_schedule": {
+      "interval_minutes": 240,
+      "retry_attempts": 2,
+      "timeout_seconds": 600
+    },
+    "supported_sources": ["availity", "change_healthcare", "trizetto"]
+  },
+  {
+    "id": "bot_payer",
+    "name": "Payer Portal Connector",
+    "description": "Fetches eligibility and authorization data from insurance payer portals",
+    "default_schedule": {
+      "interval_minutes": 120,
+      "retry_attempts": 3,
+      "timeout_seconds": 180
+    },
+    "supported_sources": ["unitedhealthcare", "anthem", "aetna", "cigna", "humana"]
+  }
+]
+

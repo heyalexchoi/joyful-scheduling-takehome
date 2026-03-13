@@ -1,0 +1,123 @@
+[
+  {
+    "id": "src_001",
+    "account_id": "acc_001",
+    "bot_type_id": "bot_ehr",
+    "name": "Epic Production",
+    "source_system": "epic",
+    "enabled": true,
+    "schedule_override": {
+      "interval_minutes": 30
+    },
+    "credentials_ref": "vault://acc_001/epic_prod",
+    "created_at": "2024-01-16T10:00:00Z"
+  },
+  {
+    "id": "src_002",
+    "account_id": "acc_001",
+    "bot_type_id": "bot_clearinghouse",
+    "name": "Availity Claims",
+    "source_system": "availity",
+    "enabled": true,
+    "schedule_override": null,
+    "credentials_ref": "vault://acc_001/availity",
+    "created_at": "2024-01-20T14:00:00Z"
+  },
+  {
+    "id": "src_003",
+    "account_id": "acc_001",
+    "bot_type_id": "bot_payer",
+    "name": "UHC Portal",
+    "source_system": "unitedhealthcare",
+    "enabled": true,
+    "schedule_override": {
+      "interval_minutes": 60
+    },
+    "credentials_ref": "vault://acc_001/uhc",
+    "created_at": "2024-02-01T09:00:00Z"
+  },
+  {
+    "id": "src_004",
+    "account_id": "acc_002",
+    "bot_type_id": "bot_ehr",
+    "name": "Cerner Main",
+    "source_system": "cerner",
+    "enabled": true,
+    "schedule_override": null,
+    "credentials_ref": "vault://acc_002/cerner",
+    "created_at": "2024-03-25T11:00:00Z"
+  },
+  {
+    "id": "src_005",
+    "account_id": "acc_002",
+    "bot_type_id": "bot_payer",
+    "name": "Anthem Blue Cross",
+    "source_system": "anthem",
+    "enabled": true,
+    "schedule_override": null,
+    "credentials_ref": "vault://acc_002/anthem",
+    "created_at": "2024-04-01T08:30:00Z"
+  },
+  {
+    "id": "src_006",
+    "account_id": "acc_003",
+    "bot_type_id": "bot_ehr",
+    "name": "Epic West Campus",
+    "source_system": "epic",
+    "enabled": true,
+    "schedule_override": {
+      "interval_minutes": 45
+    },
+    "credentials_ref": "vault://acc_003/epic_west",
+    "created_at": "2024-02-12T15:00:00Z"
+  },
+  {
+    "id": "src_007",
+    "account_id": "acc_003",
+    "bot_type_id": "bot_ehr",
+    "name": "Epic East Campus",
+    "source_system": "epic",
+    "enabled": true,
+    "schedule_override": {
+      "interval_minutes": 45
+    },
+    "credentials_ref": "vault://acc_003/epic_east",
+    "created_at": "2024-02-12T15:30:00Z"
+  },
+  {
+    "id": "src_008",
+    "account_id": "acc_003",
+    "bot_type_id": "bot_clearinghouse",
+    "name": "Change Healthcare",
+    "source_system": "change_healthcare",
+    "enabled": true,
+    "schedule_override": null,
+    "credentials_ref": "vault://acc_003/change_hc",
+    "created_at": "2024-02-20T10:00:00Z"
+  },
+  {
+    "id": "src_009",
+    "account_id": "acc_003",
+    "bot_type_id": "bot_payer",
+    "name": "Aetna Portal",
+    "source_system": "aetna",
+    "enabled": false,
+    "schedule_override": null,
+    "credentials_ref": "vault://acc_003/aetna",
+    "created_at": "2024-03-01T09:00:00Z"
+  },
+  {
+    "id": "src_010",
+    "account_id": "acc_004",
+    "bot_type_id": "bot_ehr",
+    "name": "athenahealth Practice",
+    "source_system": "athenahealth",
+    "enabled": true,
+    "schedule_override": {
+      "interval_minutes": 120
+    },
+    "credentials_ref": "vault://acc_004/athena",
+    "created_at": "2024-06-05T11:00:00Z"
+  }
+]
+

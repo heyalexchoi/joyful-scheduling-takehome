@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from scheduler.database import get_session
@@ -73,7 +73,7 @@ async def list_jobs(
     status: Optional[str] = Query(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> list[Job]:
-    query = select(Job).order_by(Job.created_at.desc()).limit(100)
+    query = select(Job).order_by(col(Job.created_at).desc()).limit(100)
 
     if account_id:
         query = query.where(Job.account_id == account_id)
@@ -85,7 +85,7 @@ async def list_jobs(
         query = query.where(Job.status == status)
 
     result = await session.exec(query)
-    return result.all()
+    return list(result.all())
 
 
 @router.get("/jobs/{job_id}", response_model=Job)

@@ -5,7 +5,7 @@ import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from scheduler.config import Config
@@ -57,6 +57,29 @@ class Scheduler:
                     await self._maybe_schedule(source, session, trigger=JobTrigger.scheduled)
                 except Exception:
                     logger.exception("schedule_error", extra={"source_id": source.id})
+                    await session.rollback()
+            await self._retry_failed(session)
+
+    async def _source_has_active_job(self, session: AsyncSession, source_id: str) -> bool:
+        active_statuses = [JobStatus.pending, JobStatus.running]
+        result = await session.exec(
+            select(Job).where(
+                Job.source_id == source_id,
+                col(Job.status).in_(active_statuses),
+            )
+        )
+        return result.first() is not None
+
+    async def _account_at_cap(self, session: AsyncSession, account_id: str) -> bool:
+        account = self.config.accounts[account_id]
+        active_statuses = [JobStatus.pending, JobStatus.running]
+        result = await session.exec(
+            select(Job).where(
+                Job.account_id == account_id,
+                col(Job.status).in_(active_statuses),
+            )
+        )
+        return len(result.all()) >= account.settings.max_concurrent_jobs
 
     async def _maybe_schedule(
         self,
@@ -64,29 +87,12 @@ class Scheduler:
         session: AsyncSession,
         trigger: JobTrigger,
     ) -> Job | None:
-        account = self.config.accounts[source.account_id]
         bot_type = self.config.bot_types[source.bot_type_id]
 
-        active_statuses = [JobStatus.pending, JobStatus.running]
-
-        # Don't start if a job is already pending/running for this source
-        active_for_source = await session.exec(
-            select(Job).where(
-                Job.source_id == source.id,
-                Job.status.in_(active_statuses),  # type: ignore[union-attr]
-            )
-        )
-        if active_for_source.first():
+        if await self._source_has_active_job(session, source.id):
             return None
 
-        # Enforce account-level concurrency cap
-        active_for_account = await session.exec(
-            select(Job).where(
-                Job.account_id == source.account_id,
-                Job.status.in_(active_statuses),  # type: ignore[union-attr]
-            )
-        )
-        if len(active_for_account.all()) >= account.settings.max_concurrent_jobs:
+        if await self._account_at_cap(session, source.account_id):
             logger.debug(
                 "concurrency_cap_reached",
                 extra={"account_id": source.account_id, "source_id": source.id},
@@ -98,7 +104,7 @@ class Scheduler:
             last_job = await session.exec(
                 select(Job)
                 .where(Job.source_id == source.id)
-                .order_by(Job.created_at.desc())
+                .order_by(col(Job.created_at).desc())
                 .limit(1)
             )
             last = last_job.first()
@@ -120,14 +126,50 @@ class Scheduler:
             extra={"job_id": job.id, "source_id": source.id, "trigger": trigger},
         )
 
+        self._spawn_job(job.id, bot_type.default_schedule.timeout_seconds)
+        return job
+
+    async def _retry_failed(self, session: AsyncSession) -> None:
+        result = await session.exec(
+            select(Job).where(col(Job.status) == JobStatus.failed)
+        )
+        for job in result.all():
+            bot_type = self.config.bot_types.get(job.bot_type_id)
+            if bot_type is None:
+                continue
+            if job.attempt >= bot_type.default_schedule.retry_attempts:
+                continue
+            if job.completed_at is None:
+                continue
+            backoff = timedelta(seconds=2 ** job.attempt * 30)
+            if datetime.utcnow() - job.completed_at < backoff:
+                continue
+            if await self._source_has_active_job(session, job.source_id):
+                continue
+            if await self._account_at_cap(session, job.account_id):
+                continue
+
+            job.status = JobStatus.pending
+            job.attempt += 1
+            job.error = None
+            job.started_at = None
+            job.completed_at = None
+            session.add(job)
+            await session.commit()
+
+            logger.info(
+                "job_retry_scheduled",
+                extra={"job_id": job.id, "source_id": job.source_id, "attempt": job.attempt},
+            )
+            self._spawn_job(job.id, bot_type.default_schedule.timeout_seconds)
+
+    def _spawn_job(self, job_id: str, timeout_seconds: int) -> None:
         task = asyncio.create_task(
-            self._run_job(job.id, bot_type.default_schedule.timeout_seconds),
-            name=f"job-{job.id}",
+            self._run_job(job_id, timeout_seconds),
+            name=f"job-{job_id}",
         )
         self._in_flight.add(task)
         task.add_done_callback(self._in_flight.discard)
-
-        return job
 
     async def _run_job(self, job_id: str, timeout_seconds: int) -> None:
         async with self._session_factory() as session:

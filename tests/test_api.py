@@ -84,6 +84,40 @@ async def test_list_jobs_with_filter(client, session_factory):
     assert data[0]["source_id"] == "src_test"
 
 
+async def test_list_jobs_filter_by_source_id(client, session_factory):
+    factory = session_factory
+    async with factory() as s:
+        s.add(Job(source_id="src_test", account_id="acc_test", bot_type_id="bot_ehr",
+                  status=JobStatus.succeeded, trigger=JobTrigger.scheduled))
+        s.add(Job(source_id="src_other", account_id="acc_other", bot_type_id="bot_ehr",
+                  status=JobStatus.succeeded, trigger=JobTrigger.scheduled))
+        await s.commit()
+
+    c, _ = client
+    resp = await c.get("/jobs?source_id=src_test")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["source_id"] == "src_test"
+
+
+async def test_list_jobs_filter_by_status(client, session_factory):
+    factory = session_factory
+    async with factory() as s:
+        s.add(Job(source_id="src_test", account_id="acc_test", bot_type_id="bot_ehr",
+                  status=JobStatus.succeeded, trigger=JobTrigger.scheduled))
+        s.add(Job(source_id="src_other", account_id="acc_other", bot_type_id="bot_ehr",
+                  status=JobStatus.failed, trigger=JobTrigger.scheduled))
+        await s.commit()
+
+    c, _ = client
+    resp = await c.get("/jobs?status=failed")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["status"] == "failed"
+
+
 async def test_get_job_not_found(client):
     c, _ = client
     resp = await c.get("/jobs/nonexistent-id")

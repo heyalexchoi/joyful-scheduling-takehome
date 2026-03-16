@@ -21,7 +21,7 @@ GET  /jobs/{job_id}             Get a specific job
 
 Example webhook call:
 ```bash
-curl -X POST http://localhost:8000/webhooks/data-available \
+curl -X POST http://127.0.0.1:8000/webhooks/data-available \
   -H "Content-Type: application/json" \
   -d '{"account_id": "acc_001", "source_id": "src_001"}'
 ```
@@ -54,9 +54,15 @@ A tick-based loop (5s interval) scans all enabled sources each cycle. For each s
 2. **Account concurrency cap** not exceeded (also checked against pending+running)
 3. **Interval elapsed** since last job was created (scheduled trigger only; webhooks bypass this)
 
-If all guards pass, a `Job` record is created in SQLite and an `asyncio.Task` is spawned to execute it. The scheduler tracks in-flight tasks for graceful shutdown. Each source is wrapped in a try/except so a failure on one source doesn't skip the rest.
+If all guards pass, a `Job` record is created in SQLite and an `asyncio.Task` is spawned to execute it. The scheduler tracks in-flight tasks for graceful shutdown. Each source is wrapped in a try/except with an explicit session rollback so a failure on one source doesn't corrupt the session for the rest.
 
 This is simpler and more predictable than a priority queue / next-run-time heap. With ~10 sources and 5s ticks, scanning is trivially cheap.
+
+### Retry with Exponential Backoff
+
+On failure, a job is eligible for retry if `attempt < bot_type.retry_attempts`. Each tick, `_retry_failed()` scans failed jobs and re-enqueues any past their backoff window (`2^attempt * 30s` from `completed_at`). The same concurrency guards apply — a retry won't fire if the source is already active or the account is at its cap.
+
+The job record is reused: `status` resets to `pending`, `attempt` increments, and `started_at`/`completed_at`/`error` are cleared. `completed_at` doubles as the timestamp of the last attempt for backoff calculation.
 
 ### Concurrency Model
 
@@ -92,14 +98,14 @@ On shutdown, the scheduler loop is cancelled and the app waits for all in-flight
 | SQLite | In-memory dict | Persistence for free, cleaner queries |
 | Single event loop | Thread pool | No overhead, jobs are I/O-bound simulations |
 | Config loaded once | Re-read each tick | Sources don't change at runtime; reload would need a signal/API |
+| Reuse job record on retry | Create new job per attempt | `attempt` field tracks progress on one record; simpler queries |
 
 ---
 
 ## What I'd Improve Given More Time
 
-- **Retry with exponential backoff**: On failure, re-enqueue with `retry_after = now + 2^attempt * 30s`, up to `bot_type.retry_attempts`. Currently jobs fail without retry.
 - **Rate limiting per source system**: Token bucket per `source_system` to avoid hammering the same external endpoint from multiple accounts (e.g., two accounts both using Epic).
 - **Config hot-reload**: Watch the JSON files or add a `PATCH /sources/{id}` API to enable/disable sources at runtime.
 - **Metrics**: Prometheus counters for `jobs_started`, `jobs_succeeded`, `jobs_failed`, and a gauge for `jobs_running`.
 - **Structured logging**: Replace `logging.info(msg, extra={...})` with `structlog` for proper JSON output in production.
-- **Postgres**: SQLite is fine for a single instance, but a real deployment would want Postgres to support horizontal scaling of the API layer.
+- **Postgres**: SQLite is fine for a single instance, but a real deployment would want Postgres to support horizontal scaling of the API layer and avoid SQLite's single-writer bottleneck under concurrent job execution.

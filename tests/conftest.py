@@ -5,8 +5,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from scheduler.config import Config
 from scheduler.models import Account, AccountSettings, BotType, DefaultSchedule, IngestionSource
@@ -32,7 +31,7 @@ async def engine():
 
 @pytest_asyncio.fixture
 def session_factory(engine):
-    return sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 @pytest_asyncio.fixture

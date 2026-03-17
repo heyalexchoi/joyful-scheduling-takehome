@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
+from sqlalchemy import Column, Enum as SAEnum, Index, text
 from sqlmodel import Field, SQLModel
 
 
@@ -81,10 +82,27 @@ class Job(SQLModel, table=True):
     source_id: str = Field(index=True)
     account_id: str = Field(index=True)
     bot_type_id: str
-    status: str = Field(default=JobStatus.pending, index=True)
-    trigger: str = Field(default=JobTrigger.scheduled)
+    status: JobStatus = Field(
+        default=JobStatus.pending,
+        sa_column=Column(SAEnum(JobStatus), default=JobStatus.pending, index=True),
+    )
+    trigger: JobTrigger = Field(
+        default=JobTrigger.scheduled,
+        sa_column=Column(SAEnum(JobTrigger), default=JobTrigger.scheduled),
+    )
     attempt: int = Field(default=1)
     created_at: datetime = Field(default_factory=utcnow)
     started_at: Optional[datetime] = Field(default=None)
     completed_at: Optional[datetime] = Field(default=None)
     error: Optional[str] = Field(default=None)
+
+    __table_args__ = (
+        # DB-level TOCTOU guard: prevents two concurrent active jobs for the same source
+        # even if concurrent requests race past the application-level checks simultaneously.
+        Index(
+            "uix_source_active",
+            "source_id",
+            unique=True,
+            sqlite_where=text("status IN ('pending', 'running')"),
+        ),
+    )

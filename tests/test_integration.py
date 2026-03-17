@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import patch
 
+import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -26,7 +27,7 @@ async def int_engine(tmp_path):
     await engine.dispose()
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def int_session_factory(int_engine):
     return async_sessionmaker(int_engine, class_=AsyncSession, expire_on_commit=False)
 

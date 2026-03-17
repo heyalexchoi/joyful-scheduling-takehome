@@ -5,7 +5,7 @@
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -r requirements-dev.txt
 uvicorn scheduler.main:app --reload
 ```
 
@@ -100,6 +100,7 @@ On shutdown, the scheduler loop is cancelled and the app waits for all in-flight
 | Config loaded once | Re-read each tick | Sources don't change at runtime; reload would need a signal/API |
 | Reuse job record on retry | Create new job per attempt | `attempt` field tracks progress on one record; simpler queries |
 | `utcnow()` returns naive UTC | Timezone-aware datetimes | SQLite strips timezone info on read; naive UTC keeps comparisons consistent. Switch to `datetime.now(timezone.utc)` directly if moving to Postgres |
+| Partial unique index on `(source_id) WHERE status IN ('pending','running')` | Application-level guards only | Concurrent webhook requests can race past the application guards before either commits. The DB constraint makes it impossible to insert two active jobs for the same source — the second `INSERT` fails with an `IntegrityError`, caught and returned as 409. Application guards remain for fast early-exit in the 99.9% case. |
 
 ---
 

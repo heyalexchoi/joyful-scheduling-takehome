@@ -5,6 +5,7 @@ import logging
 from collections.abc import Callable
 from datetime import timedelta
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -119,7 +120,12 @@ class Scheduler:
             trigger=trigger,
         )
         session.add(job)
-        await session.commit()
+        try:
+            await session.commit()
+        except IntegrityError:
+            # Concurrent request beat us past the application-level guard; treat as duplicate.
+            await session.rollback()
+            return None
         await session.refresh(job)
 
         logger.info(
@@ -142,6 +148,8 @@ class Scheduler:
             if bot_type is None:
                 continue
             if job.attempt >= bot_type.default_schedule.retry_attempts:
+                continue
+            if job.completed_at is None:
                 continue
             backoff = timedelta(seconds=2 ** job.attempt * 30)
             if utcnow() - job.completed_at < backoff:

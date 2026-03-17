@@ -34,6 +34,13 @@ class WebhookPayload(BaseModel):
 # Routes
 # ---------------------------------------------------------------------------
 
+@router.get("/health")
+async def health(request: Request) -> dict:
+    scheduler = getattr(request.app.state, "scheduler", None)
+    alive = scheduler is not None and scheduler._task is not None and not scheduler._task.done()
+    return {"status": "ok" if alive else "degraded", "scheduler_alive": alive}
+
+
 @router.post("/webhooks/data-available", status_code=201)
 async def data_available(
     payload: WebhookPayload,

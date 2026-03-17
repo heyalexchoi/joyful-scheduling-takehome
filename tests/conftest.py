@@ -98,9 +98,9 @@ async def test_app(session_factory, sample_config):
     db_module.async_session_factory = session_factory
 
     sched = Scheduler(sample_config, session_factory)
-    api_module.set_scheduler(sched)
 
     app = FastAPI()
+    app.state.scheduler = sched
     app.include_router(api_module.router)
 
     return app, sched

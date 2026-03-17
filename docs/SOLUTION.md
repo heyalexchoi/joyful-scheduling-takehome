@@ -99,6 +99,7 @@ On shutdown, the scheduler loop is cancelled and the app waits for all in-flight
 | Single event loop | Thread pool | No overhead, jobs are I/O-bound simulations |
 | Config loaded once | Re-read each tick | Sources don't change at runtime; reload would need a signal/API |
 | Reuse job record on retry | Create new job per attempt | `attempt` field tracks progress on one record; simpler queries |
+| `utcnow()` returns naive UTC | Timezone-aware datetimes | SQLite strips timezone info on read; naive UTC keeps comparisons consistent. Switch to `datetime.now(timezone.utc)` directly if moving to Postgres |
 
 ---
 
@@ -109,3 +110,11 @@ On shutdown, the scheduler loop is cancelled and the app waits for all in-flight
 - **Metrics**: Prometheus counters for `jobs_started`, `jobs_succeeded`, `jobs_failed`, and a gauge for `jobs_running`.
 - **Structured logging**: Replace `logging.info(msg, extra={...})` with `structlog` for proper JSON output in production.
 - **Postgres**: SQLite is fine for a single instance, but a real deployment would want Postgres to support horizontal scaling of the API layer and avoid SQLite's single-writer bottleneck under concurrent job execution.
+
+## Security TODOs
+
+- **Webhook authentication**: `POST /webhooks/data-available` is currently unauthenticated —
+  any caller can trigger jobs for any account. In production this should require an API key
+  (e.g., `X-API-Key` header validated against a secrets store) or JWT signed by the calling
+  system. The `account_id` in the payload should also be validated against the authenticated
+  identity to prevent cross-account triggering.

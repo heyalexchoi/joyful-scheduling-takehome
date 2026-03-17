@@ -3,14 +3,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-from sqlmodel import col, select
+from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from scheduler.config import Config
 from scheduler.executor import execute_job
-from scheduler.models import IngestionSource, Job, JobStatus, JobTrigger
+from scheduler.models import IngestionSource, Job, JobStatus, JobTrigger, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -74,12 +74,13 @@ class Scheduler:
         account = self.config.accounts[account_id]
         active_statuses = [JobStatus.pending, JobStatus.running]
         result = await session.exec(
-            select(Job).where(
+            select(func.count()).select_from(Job).where(
                 Job.account_id == account_id,
                 col(Job.status).in_(active_statuses),
             )
         )
-        return len(result.all()) >= account.settings.max_concurrent_jobs
+        count = result.one()
+        return count >= account.settings.max_concurrent_jobs
 
     async def _maybe_schedule(
         self,
@@ -108,7 +109,7 @@ class Scheduler:
                 .limit(1)
             )
             last = last_job.first()
-            if last and (datetime.utcnow() - last.created_at) < timedelta(minutes=interval):
+            if last and (utcnow() - last.created_at) < timedelta(minutes=interval):
                 return None
 
         job = Job(
@@ -131,7 +132,10 @@ class Scheduler:
 
     async def _retry_failed(self, session: AsyncSession) -> None:
         result = await session.exec(
-            select(Job).where(col(Job.status) == JobStatus.failed)
+            select(Job).where(
+                col(Job.status) == JobStatus.failed,
+                col(Job.completed_at).is_not(None),
+            )
         )
         for job in result.all():
             bot_type = self.config.bot_types.get(job.bot_type_id)
@@ -139,10 +143,8 @@ class Scheduler:
                 continue
             if job.attempt >= bot_type.default_schedule.retry_attempts:
                 continue
-            if job.completed_at is None:
-                continue
             backoff = timedelta(seconds=2 ** job.attempt * 30)
-            if datetime.utcnow() - job.completed_at < backoff:
+            if utcnow() - job.completed_at < backoff:
                 continue
             if await self._source_has_active_job(session, job.source_id):
                 continue

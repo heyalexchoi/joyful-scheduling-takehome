@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlmodel import col, select
 
-from scheduler.models import Job, JobStatus, JobTrigger
+from scheduler.models import Job, JobStatus, JobTrigger, utcnow
 from scheduler.scheduler import Scheduler
 
 
@@ -74,7 +74,7 @@ async def test_not_scheduled_before_interval_elapsed(scheduler, session):
         bot_type_id="bot_ehr",
         status=JobStatus.succeeded,
         trigger=JobTrigger.scheduled,
-        created_at=datetime.utcnow() - timedelta(minutes=5),  # 5m ago, interval=60m
+        created_at=utcnow() - timedelta(minutes=5),  # 5m ago, interval=60m
     )
     session.add(recent)
     await session.commit()
@@ -94,7 +94,7 @@ async def test_scheduled_after_interval_elapsed(scheduler, session):
         bot_type_id="bot_ehr",
         status=JobStatus.succeeded,
         trigger=JobTrigger.scheduled,
-        created_at=datetime.utcnow() - timedelta(minutes=90),  # 90m ago, interval=60m
+        created_at=utcnow() - timedelta(minutes=90),  # 90m ago, interval=60m
     )
     session.add(old)
     await session.commit()
@@ -116,7 +116,7 @@ async def test_webhook_trigger_bypasses_interval(scheduler, session):
         bot_type_id="bot_ehr",
         status=JobStatus.succeeded,
         trigger=JobTrigger.scheduled,
-        created_at=datetime.utcnow() - timedelta(minutes=5),
+        created_at=utcnow() - timedelta(minutes=5),
     )
     session.add(recent)
     await session.commit()
@@ -137,7 +137,7 @@ async def test_retry_failed_job_after_backoff(scheduler, session):
         status=JobStatus.failed,
         trigger=JobTrigger.scheduled,
         attempt=1,
-        completed_at=datetime.utcnow() - timedelta(minutes=5),  # past 2^1*30s=60s backoff
+        completed_at=utcnow() - timedelta(minutes=5),  # past 2^1*30s=60s backoff
     )
     session.add(failed)
     await session.commit()
@@ -161,7 +161,7 @@ async def test_retry_skipped_before_backoff(scheduler, session):
         status=JobStatus.failed,
         trigger=JobTrigger.scheduled,
         attempt=1,
-        completed_at=datetime.utcnow() - timedelta(seconds=10),  # within 60s backoff
+        completed_at=utcnow() - timedelta(seconds=10),  # within 60s backoff
     )
     session.add(failed)
     await session.commit()
@@ -182,7 +182,7 @@ async def test_retry_skipped_at_max_attempts(scheduler, session):
         status=JobStatus.failed,
         trigger=JobTrigger.scheduled,
         attempt=3,  # retry_attempts=3 in sample_config
-        completed_at=datetime.utcnow() - timedelta(hours=1),
+        completed_at=utcnow() - timedelta(hours=1),
     )
     session.add(failed)
     await session.commit()
@@ -212,7 +212,7 @@ async def test_retry_respects_concurrency_cap(scheduler, session):
         status=JobStatus.failed,
         trigger=JobTrigger.scheduled,
         attempt=1,
-        completed_at=datetime.utcnow() - timedelta(minutes=5),
+        completed_at=utcnow() - timedelta(minutes=5),
     )
     session.add(failed)
     await session.commit()

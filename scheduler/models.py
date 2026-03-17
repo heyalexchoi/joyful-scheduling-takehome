@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
+
+
+def utcnow() -> datetime:
+    """Return current UTC time as a timezone-naive datetime (SQLite-compatible)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +84,7 @@ class Job(SQLModel, table=True):
     status: str = Field(default=JobStatus.pending, index=True)
     trigger: str = Field(default=JobTrigger.scheduled)
     attempt: int = Field(default=1)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     started_at: Optional[datetime] = Field(default=None)
     completed_at: Optional[datetime] = Field(default=None)
     error: Optional[str] = Field(default=None)

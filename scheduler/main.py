@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from scheduler.api import router, set_scheduler
+from scheduler.api import router
 from scheduler.config import load_config
 from scheduler.database import init_db, async_session_factory
 from scheduler.scheduler import Scheduler
@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
     )
 
     scheduler = Scheduler(config, async_session_factory)
-    set_scheduler(scheduler)
+    app.state.scheduler = scheduler
     scheduler.start()
 
     yield

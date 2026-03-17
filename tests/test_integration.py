@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-import scheduler.api as api_module
 import scheduler.database as db_module
+from scheduler.api import router
 from scheduler.config import load_config
 from scheduler.scheduler import Scheduler
 
@@ -36,9 +36,9 @@ async def int_client(int_session_factory):
     config = load_config("data")
     db_module.async_session_factory = int_session_factory
     sched = Scheduler(config, int_session_factory)
-    api_module.set_scheduler(sched)
     app = FastAPI()
-    app.include_router(api_module.router)
+    app.state.scheduler = sched
+    app.include_router(router)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c, sched
 

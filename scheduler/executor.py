@@ -3,11 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from datetime import datetime
-
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from scheduler.models import Job, JobStatus
+from scheduler.models import Job, JobStatus, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +15,7 @@ SUCCESS_RATE = 0.8
 async def execute_job(job: Job, timeout_seconds: int, session: AsyncSession) -> None:
     """Simulate a data pull: random sleep, then 80% success / 20% failure."""
     job.status = JobStatus.running
-    job.started_at = datetime.utcnow()
+    job.started_at = utcnow()
     session.add(job)
     await session.commit()
 
@@ -40,6 +38,6 @@ async def execute_job(job: Job, timeout_seconds: int, session: AsyncSession) -> 
         job.error = f"Timed out after {timeout_seconds}s"
         logger.warning("job_timeout", extra={"job_id": job.id, "source_id": job.source_id})
 
-    job.completed_at = datetime.utcnow()
+    job.completed_at = utcnow()
     session.add(job)
     await session.commit()

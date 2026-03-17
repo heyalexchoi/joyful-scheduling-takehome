@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -12,26 +13,17 @@ from scheduler.scheduler import Scheduler
 
 router = APIRouter()
 
-# Injected at startup
-_scheduler: Scheduler | None = None
 
-
-def set_scheduler(s: Scheduler) -> None:
-    global _scheduler
-    _scheduler = s
-
-
-def get_scheduler() -> Scheduler:
-    assert _scheduler is not None, "Scheduler not initialized"
-    return _scheduler
+def get_scheduler(request: Request) -> Scheduler:
+    scheduler = getattr(request.app.state, "scheduler", None)
+    if scheduler is None:
+        raise HTTPException(status_code=503, detail="Scheduler not initialized")
+    return scheduler
 
 
 # ---------------------------------------------------------------------------
 # Request / response schemas
 # ---------------------------------------------------------------------------
-
-from pydantic import BaseModel
-
 
 class WebhookPayload(BaseModel):
     account_id: str

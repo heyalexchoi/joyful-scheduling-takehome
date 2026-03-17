@@ -1,5 +1,9 @@
 # Solution: Data Ingestion Job Scheduler
 
+Alex Choi's submission for Joyful Health
+
+https://www.linkedin.com/in/heyalexchoi/
+
 ## How to Run
 
 ```bash

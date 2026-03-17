@@ -66,8 +66,6 @@ async def test_list_jobs_empty(client):
 
 
 async def test_list_jobs_with_filter(client, session_factory):
-    from scheduler.models import Job, JobStatus, JobTrigger
-
     factory = session_factory
     async with factory() as s:
         s.add(Job(source_id="src_test", account_id="acc_test", bot_type_id="bot_ehr",

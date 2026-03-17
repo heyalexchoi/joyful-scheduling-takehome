@@ -38,7 +38,7 @@ class WebhookPayload(BaseModel):
 async def data_available(
     payload: WebhookPayload,
     scheduler: Annotated[Scheduler, Depends(get_scheduler)],
-) -> dict:
+) -> dict[str, str]:
     config = scheduler.config
 
     source = next((s for s in config.sources if s.id == payload.source_id), None)

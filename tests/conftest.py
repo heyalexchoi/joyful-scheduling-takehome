@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -51,7 +53,7 @@ def sample_config() -> Config:
         name="Test Account",
         tier="standard",
         settings=AccountSettings(max_concurrent_jobs=2, priority="normal"),
-        created_at="2024-01-01T00:00:00Z",
+        created_at=datetime(2024, 1, 1),
     )
     bot_type = BotType(
         id="bot_ehr",
@@ -73,7 +75,7 @@ def sample_config() -> Config:
         enabled=True,
         schedule_override=None,
         credentials_ref="vault://test",
-        created_at="2024-01-01T00:00:00Z",
+        created_at=datetime(2024, 1, 1),
     )
     return Config(
         sources=[source],

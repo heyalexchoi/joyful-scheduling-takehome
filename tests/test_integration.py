@@ -85,28 +85,29 @@ async def test_scheduled_jobs_created_on_first_tick(int_client):
 
 async def test_interval_guard_prevents_reschedule(int_client):
     """
-    Real-time test: start the scheduler loop, let it tick twice (5s apart).
-    All source intervals are 60+ minutes so the second tick should create no new jobs.
+    Start the real scheduler loop with tick interval reduced to 0 so both ticks
+    fire back-to-back without sleeping. All source intervals are 60+ minutes so
+    the second tick should create no new jobs.
     """
     c, sched = int_client
 
-    with patch("scheduler.executor.random.uniform", return_value=0.01):
+    with patch("scheduler.scheduler.TICK_INTERVAL_SECONDS", 0), \
+         patch("scheduler.executor.random.uniform", return_value=0.01):
         sched.start()
 
-        # First tick fires immediately; wait for it and its jobs to finish
-        await asyncio.sleep(0.5)
+        # Let the first tick run and its jobs complete
+        await asyncio.sleep(0.1)
         await asyncio.gather(*sched._in_flight, return_exceptions=True)
-
         first_count = len((await c.get("/jobs")).json())
         assert first_count > 0
 
-        # Wait for the second tick to fire (TICK_INTERVAL_SECONDS = 5)
-        await asyncio.sleep(5.5)
+        # Let the second tick run — interval guard should block all re-scheduling
+        await asyncio.sleep(0.1)
         await asyncio.gather(*sched._in_flight, return_exceptions=True)
         await sched.stop()
 
     second_count = len((await c.get("/jobs")).json())
-    assert second_count == first_count  # interval guard blocked all re-scheduling
+    assert second_count == first_count
 
 
 async def test_graceful_shutdown_completes_in_flight_jobs(int_client):
